@@ -297,7 +297,8 @@ func mysqlDiffUpdate(file, dbname string) {
 	err := mysqlExec(false, "use "+dbname)
 	if err != nil {
 		log.Println("    正式库不存在，尝试创建...")
-		mysqlExec(true, "CREATE DATABASE %s DEFAULT CHARSET utf8 COLLATE utf8_general_ci", dbname)
+		// 使用 utf8mb4，参考：https://www.jianshu.com/p/f8707b8461d3
+		mysqlExec(true, "CREATE DATABASE %s DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_general_ci", dbname)
 	}
 	dbBase := parseTableFromDB(dbname)
 	log.Println("done!\n")
