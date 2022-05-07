@@ -4,7 +4,7 @@
 
 go 版本：go 1.12
 ```
-git clone https://github.com/shuimu98/mysqldiff.git
+git clone https://github.com/domixcat/mysqldiff.git
 cd mysqldiff
 go mod tidy
 go build
