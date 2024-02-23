@@ -6,23 +6,27 @@ import (
 	"regexp"
 )
 
-func mysqlExec(fatal bool, sql string, args ...interface{}) error {
+func mysqlExec(sql string, args ...interface{}) error {
 	sqlstr := fmt.Sprintf(sql, args...)
 	_, err := MysqlDB.Exec(sqlstr)
 	if err != nil {
-		if !fatal {
-			return err
-		} else {
-			panic(fmt.Sprintf("err: %s \n\nsql: %s", err.Error(), sqlstr))
-		}
+		return err
 	}
-	return err
+	return nil
+}
+
+func mysqlMustExec(sql string, args ...interface{}) {
+	sqlstr := fmt.Sprintf(sql, args...)
+	_, err := MysqlDB.Exec(sqlstr)
+	if err != nil {
+		panic(fmt.Sprintf("err: %s \n\nsql: %s", err.Error(), sqlstr))
+	}
 }
 
 func dropAndUse(dbname string) {
-	mysqlExec(false, "drop database %s", dbname)
-	mysqlExec(true, "CREATE DATABASE %s DEFAULT CHARSET utf8 COLLATE utf8_general_ci", dbname)
-	mysqlExec(true, "use %s", dbname)
+	mysqlExec("drop database %s", dbname)
+	mysqlMustExec("CREATE DATABASE %s DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_general_ci", dbname)
+	mysqlMustExec("use %s", dbname)
 }
 
 func mysqlDiffDB(dbBase, dbFile []*MysqlTable) []string {
@@ -67,15 +71,9 @@ func mysqlDiffTable(ot, nt *MysqlTable, upsql *[]string) {
 	// 对比key
 	sqlDrop, sqlAdd := mysqlDiffKey(ot, nt)
 
-	for _, str := range sqlDrop {
-		*upsql = append(*upsql, str)
-	}
-	for _, str := range sqlUp {
-		*upsql = append(*upsql, str)
-	}
-	for _, str := range sqlAdd {
-		*upsql = append(*upsql, str)
-	}
+	*upsql = append(*upsql, sqlDrop...)
+	*upsql = append(*upsql, sqlUp...)
+	*upsql = append(*upsql, sqlAdd...)
 }
 
 func mysqlDiffKey(ot, nt *MysqlTable) ([]string, []string) {
@@ -222,7 +220,7 @@ func mysqlDiffField(ot, nt *MysqlTable) []string {
 		}
 
 		var op string
-		var last = lastFld
+		last := lastFld
 		lastFld = nf.Name
 		if fp != nil {
 			if fp.Name != nf.Name {
@@ -258,7 +256,7 @@ func mysqlDiffField(ot, nt *MysqlTable) []string {
 			upstr := fmt.Sprintf("alter table %s %s `%s` %s %s", nt.Name, op, nf.Name, nf.Desc, pos)
 			sqlUp = append(sqlUp, upstr)
 
-			//child
+			// child
 			for _, cnm := range nt.ChildNames {
 				upstr := fmt.Sprintf("alter table %s %s `%s` %s %s", cnm, op, nf.Name, nf.Desc, pos)
 				sqlUp = append(sqlUp, upstr)
@@ -269,13 +267,13 @@ func mysqlDiffField(ot, nt *MysqlTable) []string {
 }
 
 func mysqlDiffUpdate(file, dbname string) {
-	tmpDB_A := dbname + "_temp_a" //当前正式库的实验库
-	tmpDB_B := dbname + "_temp_b" //sql文件创建的实验库
+	tmpDB_A := dbname + "_temp_a" // 当前正式库的实验库
+	tmpDB_B := dbname + "_temp_b" // sql文件创建的实验库
 	defer func() {
-		mysqlExec(false, "drop database "+tmpDB_A)
-		mysqlExec(false, "drop database "+tmpDB_B)
+		mysqlExec("drop database " + tmpDB_A)
+		mysqlExec("drop database " + tmpDB_B)
 		if err := recover(); err != nil {
-			log.Println("数据库对比失败：\n", err)
+			log.Printf("数据库对比失败，%s\n", err)
 		}
 	}()
 
@@ -288,26 +286,26 @@ func mysqlDiffUpdate(file, dbname string) {
 	}
 	dropAndUse(tmpDB_B)
 	for _, t := range dbFile {
-		mysqlExec(true, t.SqlStr)
+		mysqlMustExec(t.SqlStr)
 	}
-	log.Println("done!\n")
+	log.Printf("done!\n\n")
 
 	// 2. 读取正式库的表结构
 	log.Printf("2. 读取正式库【%s】的表结构\n", dbname)
-	err := mysqlExec(false, "use "+dbname)
+	err := mysqlExec("use " + dbname)
 	if err != nil {
 		log.Println("    正式库不存在，尝试创建...")
 		// 使用 utf8mb4，参考：https://www.jianshu.com/p/f8707b8461d3
-		mysqlExec(true, "CREATE DATABASE %s DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_general_ci", dbname)
+		mysqlMustExec("CREATE DATABASE %s DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_general_ci", dbname)
 	}
 	dbBase := parseTableFromDB(dbname)
-	log.Println("done!\n")
+	log.Printf("done!\n\n")
 
 	// 3. 对比表结构差异
 	log.Printf("3. 对比表结构差异\n")
 	upsql := mysqlDiffDB(dbBase, dbFile)
 	if len(upsql) == 0 {
-		log.Println("done! 无差异\n")
+		log.Printf("done! 无差异\n\n")
 		return
 	} else {
 		log.Printf("存在【%d】个差异", len(upsql))
@@ -320,16 +318,16 @@ func mysqlDiffUpdate(file, dbname string) {
 			log.Printf("    %5d : %s", i+1, v)
 		}
 	}
-	log.Println("done!\n")
+	log.Printf("done!\n\n")
 
 	// 4. 创建实验库
 	log.Printf("4. 创建实验库\n")
 	dropAndUse(tmpDB_A)
 	for _, t := range dbBase {
 		log.Printf("    正在创建实验表: %s \n", t.Name)
-		mysqlExec(true, t.SqlStr)
+		mysqlMustExec(t.SqlStr)
 	}
-	log.Println("done!\n")
+	log.Printf("done!\n\n")
 	if onlyCk {
 		return
 	}
@@ -337,15 +335,15 @@ func mysqlDiffUpdate(file, dbname string) {
 	// 5. 测试差异能否在实验库执行成功
 	log.Printf("5. 测试差异能否在实验库执行成功\n")
 	for _, v := range upsql {
-		mysqlExec(true, v)
+		mysqlMustExec(v)
 	}
-	log.Println("done! 差异执行通过测试\n")
+	log.Printf("done! 差异执行通过测试\n\n")
 
 	// 6. 差异应用到正式库
 	log.Printf("6. 差异应用到正式库\n")
-	mysqlExec(true, "use %s", dbname)
+	mysqlMustExec("use %s", dbname)
 	for _, v := range upsql {
-		mysqlExec(true, v)
+		mysqlMustExec(v)
 	}
-	log.Println("done! 数据库维护完成!\n")
+	log.Printf("done! 数据库维护完成!\n\n")
 }

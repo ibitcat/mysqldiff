@@ -1,8 +1,8 @@
 package main
 
 import (
-	"io/ioutil"
 	"log"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -14,15 +14,15 @@ var (
 	likeRe  = regexp.MustCompile(`like\s+?` + "`" + `(\S+)` + "`")
 	tnmRe   = regexp.MustCompile(`CREATE\s+TABLE\s+` + "`" + `(\S+?)` + "`" + "(.+)")
 	fldRe   = regexp.MustCompile(`^\s*` + "`" + `(\S+)` + "`" + `\s*(.+),`)
-	keyRe   = regexp.MustCompile(`^\s*(.*?KEY)\s*(\S*)\s*\((.+?)\)`)
+	keyRe   = regexp.MustCompile(`^\s*(.*?(KEY|INDEX))\s*(\S*)\s*\((.+?)\)`)
 	knmRe   = regexp.MustCompile("`" + `(\S+)` + "`")
-	ngnRe   = regexp.MustCompile(`^\s*\)\s*?ENGINE=(\S+)\s*(.*);`)
+	ngnRe   = regexp.MustCompile(`^\s*\)\s*?ENGINE\s*=\s*(\S+)\s*(.*);`)
 	childRe = regexp.MustCompile(`UNION=\((\S+)\)`)
 	tnameRe = regexp.MustCompile("`" + `(\S+)` + "`")
 )
 
 func parseTableFromFile(file string) []*MysqlTable {
-	bytes, err := ioutil.ReadFile(file)
+	bytes, err := os.ReadFile(file)
 	if err != nil {
 		panic("读取sql文件失败")
 	}
@@ -72,7 +72,7 @@ func parseTableFromDB(dbname string) []*MysqlTable {
 		if err != nil {
 			panic(err)
 		} else {
-			//log.Printf("%q\n", tblStr)
+			// log.Printf("%q\n", tblStr)
 			t := parseTable(tblStr + ";")
 			tblList = append(tblList, t)
 		}
@@ -95,7 +95,7 @@ func parseTable(tblStr string) *MysqlTable {
 
 	step := ""
 	for idx, line := range lines {
-		line = strings.ReplaceAll(line, "\r", "") //兼容windows("\r\n")
+		line = strings.ReplaceAll(line, "\r", "") // 兼容windows("\r\n")
 		if idx == 0 {
 			tblEx := ""
 			ret := tnmRe.FindStringSubmatch(line)
@@ -132,16 +132,16 @@ func parseTable(tblStr string) *MysqlTable {
 			// 解析键（包括主键和其他键）
 			if step == "tflds_end" {
 				ret := keyRe.FindStringSubmatch(line) // RRIMARY KEY (`id`) 或 KEY `key_idx` (`xx`, `yy`)
-				if len(ret) == 4 {
+				if len(ret) == 5 {
 					var keyType, keyName, keyFlds string
 					keyType = ret[1]
-					keyFlds = ret[3]
-					if keyType == "PRIMARY KEY" {
+					keyFlds = ret[4]
+					if strings.Contains(keyType, "PRIMARY") {
 						// primary key
 						keyName = ""
 					} else {
 						// other key
-						knmRet := knmRe.FindStringSubmatch(ret[2])
+						knmRet := knmRe.FindStringSubmatch(ret[3])
 						if len(knmRet) == 2 {
 							keyName = knmRet[1]
 						}
@@ -194,7 +194,6 @@ func parseTable(tblStr string) *MysqlTable {
 	// append to table list
 	if step != "t_end" {
 		panic("解析table错误, sql:\n" + tblStr)
-		return nil
 	}
 	return &t
 }
@@ -209,9 +208,7 @@ func parseTableEx(tbls []*MysqlTable) {
 
 		// 分表处理
 		if tbl.Engine.Name == "MRG_MyISAM" {
-			for _, cnm := range tbl.ChildNames {
-				childList = append(childList, cnm)
-			}
+			childList = append(childList, tbl.ChildNames...)
 		}
 
 		// like处理

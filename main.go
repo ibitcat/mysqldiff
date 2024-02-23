@@ -4,9 +4,10 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
 	"log"
 	"os"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 var (
@@ -32,7 +33,7 @@ func init() {
 	flag.IntVar(&dbPort, "P", 3306, "Port number to use for connection.")
 	flag.StringVar(&dbName, "d", "", "Database to diff.")
 	flag.StringVar(&dbFile, "f", "", "Read this sql file to update database.")
-	flag.StringVar(&dbChar, "default-character-set=name", "utf8", "Set the default character set.")
+	flag.StringVar(&dbChar, "default-character-set", "utf8mb4", "Set the default character set.")
 	flag.BoolVar(&onlyCk, "only-check", false, "Only check diff.")
 
 	flag.Usage = usage
@@ -51,7 +52,7 @@ Options:
 
 func main() {
 	flag.Parse()
-	if dbHelp {
+	if dbHelp || flag.NFlag() <= 0 {
 		flag.Usage()
 		return
 	}
@@ -73,6 +74,6 @@ func main() {
 		log.Println("数据库连接成功")
 	}
 
-	//update
+	// update
 	mysqlDiffUpdate(dbFile, dbName)
 }
