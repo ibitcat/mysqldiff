@@ -8,7 +8,9 @@ type FieldInfo struct {
 type KeyInfo struct {
 	Name   string // 键名
 	Type   string // 键类型
+	Kind   string // INDEX/KEY
 	Fields string // 键的字段列表
+	Other  string // 索引类型等
 }
 
 type EngineInfo struct {

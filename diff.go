@@ -95,12 +95,12 @@ func mysqlDiffKey(ot, nt *MysqlTable) ([]string, []string) {
 
 			// mother
 			// eg.: alter table xxx drop keytype keyname
-			sqlstr := fmt.Sprintf("alter table %s drop %s %s", ot.Name, k.Type, k.Name)
+			sqlstr := fmt.Sprintf("alter table %s drop %s %s", ot.Name, k.Kind, k.Name)
 			sqlDrop = append(sqlDrop, sqlstr)
 
 			// child
 			for _, cnm := range ot.ChildNames {
-				sqlstr := fmt.Sprintf("alter table %s drop %s %s", cnm, k.Type, k.Name)
+				sqlstr := fmt.Sprintf("alter table %s drop %s %s", cnm, k.Kind, k.Name)
 				sqlDrop = append(sqlDrop, sqlstr)
 			}
 		} else {
@@ -133,7 +133,10 @@ func mysqlDiffKey(ot, nt *MysqlTable) ([]string, []string) {
 					op = "modify"
 					ignoreMap[kp.Name] = true
 				}
-			} else if kp.Fields != nk.Fields || kp.Type != nk.Type {
+			} else if kp.Fields != nk.Fields ||
+				kp.Type != nk.Type ||
+				kp.Kind != nk.Kind ||
+				kp.Other != nk.Other {
 				op = "modify"
 				oIdx += 1
 			} else {
@@ -145,26 +148,26 @@ func mysqlDiffKey(ot, nt *MysqlTable) ([]string, []string) {
 		}
 
 		if len(op) > 0 {
-			// key的modify,要先drop可以,再add回去
+			// key的modify,要先drop,再add回去
 			if op == "modify" {
-				sqlstr := fmt.Sprintf("alter table %s drop %s %s", nt.Name, nk.Type, nk.Name)
+				sqlstr := fmt.Sprintf("alter table %s drop %s %s", nt.Name, nk.Kind, nk.Name)
 				sqlDrop = append(sqlDrop, sqlstr)
 
 				// child
 				for _, cnm := range ot.ChildNames {
-					sqlstr := fmt.Sprintf("alter table %s drop %s %s", cnm, nk.Type, nk.Name)
+					sqlstr := fmt.Sprintf("alter table %s drop %s %s", cnm, nk.Kind, nk.Name)
 					sqlDrop = append(sqlDrop, sqlstr)
 				}
 			}
 
 			// add
 			// eg.: alter table xxx add keytype keyname (keyfield)
-			sqlstr := fmt.Sprintf("alter table %s add %s %s (%s)", nt.Name, nk.Type, nk.Name, nk.Fields)
+			sqlstr := fmt.Sprintf("alter table %s add %s %s %s (%s) %s", nt.Name, nk.Type, nk.Kind, nk.Name, nk.Fields, nk.Other)
 			sqlAdd = append(sqlAdd, sqlstr)
 
 			// child
 			for _, cnm := range ot.ChildNames {
-				sqlstr := fmt.Sprintf("alter table %s add %s %s (%s)", cnm, nk.Type, nk.Name, nk.Fields)
+				sqlstr := fmt.Sprintf("alter table %s add %s %s %s (%s) %s", cnm, nk.Type, nk.Kind, nk.Name, nk.Fields, nk.Other)
 				sqlAdd = append(sqlAdd, sqlstr)
 			}
 		}
@@ -249,7 +252,7 @@ func mysqlDiffField(ot, nt *MysqlTable) []string {
 			if len(last) == 0 {
 				pos = "first"
 			} else {
-				pos = "after " + last
+				pos = "after " + "`" + last + "`"
 			}
 
 			// mother

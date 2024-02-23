@@ -14,7 +14,7 @@ var (
 	likeRe  = regexp.MustCompile(`like\s+?` + "`" + `(\S+)` + "`")
 	tnmRe   = regexp.MustCompile(`CREATE\s+TABLE\s+` + "`" + `(\S+?)` + "`" + "(.+)")
 	fldRe   = regexp.MustCompile(`^\s*` + "`" + `(\S+)` + "`" + `\s*(.+),`)
-	keyRe   = regexp.MustCompile(`^\s*(.*?(KEY|INDEX))\s*(\S*)\s*\((.+?)\)`)
+	keyRe   = regexp.MustCompile(`^\s*(\S*?)\s*(KEY|INDEX)\s*(\S*)\s*\((.+?)\)([^,]*),?`)
 	knmRe   = regexp.MustCompile("`" + `(\S+)` + "`")
 	ngnRe   = regexp.MustCompile(`^\s*\)\s*?ENGINE\s*=\s*(\S+)\s*(.*);`)
 	childRe = regexp.MustCompile(`UNION=\((\S+)\)`)
@@ -131,15 +131,17 @@ func parseTable(tblStr string) *MysqlTable {
 
 			// 解析键（包括主键和其他键）
 			if step == "tflds_end" {
-				ret := keyRe.FindStringSubmatch(line) // RRIMARY KEY (`id`) 或 KEY `key_idx` (`xx`, `yy`)
-				if len(ret) == 5 {
-					var keyType, keyName, keyFlds string
-					keyType = ret[1]
-					keyFlds = ret[4]
-					if strings.Contains(keyType, "PRIMARY") {
-						// primary key
-						keyName = ""
-					} else {
+				// RRIMARY KEY (`id`)
+				// UNIQUE KEY `key_idx`(`index`)
+				// INDEX `key_idx`(`index`)
+				// INDEX `key_idx`(`index`) USING BTREE
+				ret := keyRe.FindStringSubmatch(line)
+				if len(ret) == 6 {
+					keyType := ret[1]
+					keyKind := ret[2]
+					keyName := ""
+					keyFlds := ret[4]
+					if keyType != "PRIMARY" {
 						// other key
 						knmRet := knmRe.FindStringSubmatch(ret[3])
 						if len(knmRet) == 2 {
@@ -149,7 +151,7 @@ func parseTable(tblStr string) *MysqlTable {
 
 					// bugfix:修复多个键名之间有空格时，每次都要重新更新数据库的问题
 					keyFlds = strings.ReplaceAll(keyFlds, " ", "")
-					t.Keys = append(t.Keys, KeyInfo{keyName, keyType, keyFlds})
+					t.Keys = append(t.Keys, KeyInfo{keyName, keyType, keyKind, keyFlds, ret[5]})
 				} else {
 					// sort key(按键名升序)
 					sort.Slice(t.Keys, func(i, j int) bool {
