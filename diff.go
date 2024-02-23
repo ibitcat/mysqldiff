@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strings"
 )
 
 func mysqlExec(sql string, args ...interface{}) error {
@@ -360,7 +361,8 @@ func mysqlDiffUpdate(file, dbname string) {
 		for _, t := range srcTables {
 			rstr := `(?s)CREATE\s+?TABLE\s+?` + "`" + t.Name + "`" + ".+?;"
 			r := regexp.MustCompile(rstr)
-			sqlStr = r.ReplaceAllString(sqlStr, t.SqlStr)
+			ddl, _ := strings.CutSuffix(t.SqlStr, "\n")
+			sqlStr = r.ReplaceAllString(sqlStr, ddl)
 		}
 		os.WriteFile(file, []byte(sqlStr), os.ModePerm)
 		log.Printf("done! 修正完成!\n\n")
