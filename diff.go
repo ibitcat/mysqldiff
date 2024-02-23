@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"regexp"
 )
 
@@ -349,4 +350,19 @@ func mysqlDiffUpdate(file, dbname string) {
 		mysqlMustExec(v)
 	}
 	log.Printf("done! 数据库维护完成!\n\n")
+
+	// 7. 用标准DDL替换原文件
+	if modifySrcFile {
+		log.Printf("7. 修正源文件\n")
+		bytes, _ := os.ReadFile(file)
+		sqlStr := string(bytes)
+		srcTables := parseTableFromDB(tmpDB_B)
+		for _, t := range srcTables {
+			rstr := `(?s)CREATE\s+?TABLE\s+?` + "`" + t.Name + "`" + ".+?;"
+			r := regexp.MustCompile(rstr)
+			sqlStr = r.ReplaceAllString(sqlStr, t.SqlStr)
+		}
+		os.WriteFile(file, []byte(sqlStr), os.ModePerm)
+		log.Printf("done! 修正完成!\n\n")
+	}
 }

@@ -14,15 +14,16 @@ var (
 	MysqlDB *sql.DB
 
 	// flag
-	dbHelp bool
-	dbUser string
-	dbPass string
-	dbHost string
-	dbPort int
-	dbName string
-	dbFile string
-	dbChar string
-	onlyCk bool
+	dbHelp        bool
+	dbUser        string
+	dbPass        string
+	dbHost        string
+	dbPort        int
+	dbName        string
+	dbFile        string
+	dbChar        string
+	onlyCk        bool
+	modifySrcFile bool
 )
 
 func init() {
@@ -35,6 +36,7 @@ func init() {
 	flag.StringVar(&dbFile, "f", "", "Read this sql file to update database.")
 	flag.StringVar(&dbChar, "default-character-set", "utf8mb4", "Set the default character set.")
 	flag.BoolVar(&onlyCk, "only-check", false, "Only check diff.")
+	flag.BoolVar(&modifySrcFile, "modify", false, "Modified source file .")
 
 	flag.Usage = usage
 }
