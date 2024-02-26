@@ -333,9 +333,6 @@ func mysqlDiffUpdate(file, dbname string) {
 		mysqlMustExec(t.SqlStr)
 	}
 	log.Printf("done!\n\n")
-	if onlyCk {
-		return
-	}
 
 	// 5. 测试差异能否在实验库执行成功
 	log.Printf("5. 测试差异能否在实验库执行成功\n")
@@ -343,6 +340,9 @@ func mysqlDiffUpdate(file, dbname string) {
 		mysqlMustExec(v)
 	}
 	log.Printf("done! 差异执行通过测试\n\n")
+	if onlyCk {
+		return
+	}
 
 	// 6. 差异应用到正式库
 	log.Printf("6. 差异应用到正式库\n")
