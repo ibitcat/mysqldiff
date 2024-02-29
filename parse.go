@@ -12,7 +12,7 @@ var (
 	// regexps
 	lineRe  = regexp.MustCompile(`.*?\n`)
 	likeRe  = regexp.MustCompile(`like\s+?` + "`" + `(\S+)` + "`")
-	tnmRe   = regexp.MustCompile(`CREATE\s+TABLE\s+` + "`" + `(\S+?)` + "`" + "(.+)")
+	tnmRe   = regexp.MustCompile(`CREATE\s+TABLE\s+` + "`" + `(\S+?)` + "`" + "(.*)")
 	fldRe   = regexp.MustCompile(`^\s*` + "`" + `(\S+)` + "`" + `\s*(.+),`)
 	keyRe   = regexp.MustCompile(`^\s*(\S*?)\s*(KEY|INDEX)\s*(\S*)\s*\((.+?)\)([^,]*),?`)
 	knmRe   = regexp.MustCompile("`" + `(\S+)` + "`")
@@ -116,78 +116,53 @@ func parseTable(tblStr string) *MysqlTable {
 					continue
 				}
 			}
-			step = "tname_end" // 表名解析完成
 		} else {
-			// 解析字段
-			if step == "tname_end" {
-				ret := fldRe.FindStringSubmatch(line)
-				if len(ret) == 3 {
-					fieldName, fieldDesc := ret[1], ret[2]
-					t.Flds = append(t.Flds, FieldInfo{fieldName, fieldDesc})
-				} else {
-					step = "tflds_end" // 字段解析完成
-				}
-			}
-
-			// 解析键（包括主键和其他键）
-			if step == "tflds_end" {
+			if ret := fldRe.FindStringSubmatch(line); len(ret) == 3 {
+				// 解析字段
+				fieldName, fieldDesc := ret[1], ret[2]
+				t.Flds = append(t.Flds, FieldInfo{fieldName, fieldDesc})
+			} else if ret := keyRe.FindStringSubmatch(line); len(ret) == 6 {
+				// 解析键（包括主键和其他键）
 				// RRIMARY KEY (`id`)
 				// UNIQUE KEY `key_idx`(`index`)
 				// INDEX `key_idx`(`index`)
 				// INDEX `key_idx`(`index`) USING BTREE
-				ret := keyRe.FindStringSubmatch(line)
-				if len(ret) == 6 {
-					keyType := ret[1]
-					keyKind := ret[2]
-					keyName := ""
-					keyFlds := ret[4]
-					if keyType != "PRIMARY" {
-						// other key
-						knmRet := knmRe.FindStringSubmatch(ret[3])
-						if len(knmRet) == 2 {
-							keyName = knmRet[1]
-						}
+				keyType := ret[1]
+				keyKind := ret[2]
+				keyName := ""
+				keyFlds := ret[4]
+				if keyType != "PRIMARY" {
+					// other key
+					knmRet := knmRe.FindStringSubmatch(ret[3])
+					if len(knmRet) == 2 {
+						keyName = knmRet[1]
 					}
-
-					// bugfix:修复多个键名之间有空格时，每次都要重新更新数据库的问题
-					keyFlds = strings.ReplaceAll(keyFlds, " ", "")
-					t.Keys = append(t.Keys, KeyInfo{keyName, keyType, keyKind, keyFlds, ret[5]})
-				} else {
-					// sort key(按键名升序)
-					sort.Slice(t.Keys, func(i, j int) bool {
-						return t.Keys[i].Name < t.Keys[j].Name
-					})
-
-					step = "tkeys_end"
 				}
-			}
 
-			// 解析engine
-			if step == "tkeys_end" {
-				ret := ngnRe.FindStringSubmatch(line)
-				if len(ret) == 3 {
-					t.Engine.Name = ret[1]
-					t.Engine.Desc = ret[2]
+				// bugfix:修复多个键名之间有空格时，每次都要重新更新数据库的问题
+				keyFlds = strings.ReplaceAll(keyFlds, " ", "")
+				t.Keys = append(t.Keys, KeyInfo{keyName, keyType, keyKind, keyFlds, ret[5]})
+			} else if ret := ngnRe.FindStringSubmatch(line); len(ret) == 3 {
+				// 解析engine
+				step = "t_end"
+				t.Engine.Name = ret[1]
+				t.Engine.Desc = ret[2]
 
-					if t.Engine.Name == "MRG_MyISAM" {
-						// myisam 分表
-						ret := childRe.FindStringSubmatch(t.Engine.Desc)
-						if len(ret) == 2 {
-							child := strings.Split(ret[1], ",")
-							if len(child) > 0 {
-								t.ChildNames = make([]string, 0, len(child))
-								for _, v := range child {
-									nmRet := tnameRe.FindStringSubmatch(v)
-									if len(nmRet) == 2 {
-										t.ChildNames = append(t.ChildNames, nmRet[1])
-									}
+				if t.Engine.Name == "MRG_MyISAM" {
+					// myisam 分表
+					ret := childRe.FindStringSubmatch(t.Engine.Desc)
+					if len(ret) == 2 {
+						child := strings.Split(ret[1], ",")
+						if len(child) > 0 {
+							t.ChildNames = make([]string, 0, len(child))
+							for _, v := range child {
+								nmRet := tnameRe.FindStringSubmatch(v)
+								if len(nmRet) == 2 {
+									t.ChildNames = append(t.ChildNames, nmRet[1])
 								}
 							}
 						}
 					}
-
-					step = "t_end"
-					break
 				}
 			}
 		}
@@ -197,6 +172,11 @@ func parseTable(tblStr string) *MysqlTable {
 	if step != "t_end" {
 		panic("解析table错误, sql:\n" + tblStr)
 	}
+
+	// sort key(按键名升序)
+	sort.Slice(t.Keys, func(i, j int) bool {
+		return t.Keys[i].Name < t.Keys[j].Name
+	})
 	return &t
 }
 

@@ -36,7 +36,7 @@ func init() {
 	flag.StringVar(&dbFile, "f", "", "Read this sql file to update database.")
 	flag.StringVar(&dbChar, "default-character-set", "utf8mb4", "Set the default character set.")
 	flag.BoolVar(&onlyCk, "only-check", false, "Only check diff.")
-	flag.BoolVar(&modifySrcFile, "modify", false, "Modified source file .")
+	flag.BoolVar(&modifySrcFile, "modify", false, "Modified source file.(If -only-check is set, this option is invalid)")
 
 	flag.Usage = usage
 }
@@ -46,7 +46,8 @@ func usage() {
 Usage: mysqldiff [OPTIONS]
 
     eg.: mysqldiff -u root -p 123456 -h 127.0.0.1 -P 3306 -d database -f filename.sql
-
+         mysqldiff -only-check -u root -p 123456 -h 127.0.0.1 -P 3306 -d database -f filename.sql
+         mysqldiff -modify -u root -p 123456 -h 127.0.0.1 -P 3306 -d database -f filename.sql
 Options:
 `)
 	flag.PrintDefaults()
