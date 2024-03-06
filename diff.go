@@ -27,7 +27,7 @@ func mysqlMustExec(sql string, args ...interface{}) {
 
 func dropAndUse(dbname string) {
 	mysqlExec("drop database %s", dbname)
-	mysqlMustExec("CREATE DATABASE %s DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_general_ci", dbname)
+	mysqlMustExec("CREATE DATABASE %s DEFAULT CHARSET %s COLLATE %s", dbname, dbCharset, dbCollate)
 	mysqlMustExec("use %s", dbname)
 }
 
@@ -301,7 +301,7 @@ func mysqlDiffUpdate(file, dbname string) {
 	if err != nil {
 		log.Println("    正式库不存在，尝试创建...")
 		// 使用 utf8mb4，参考：https://www.jianshu.com/p/f8707b8461d3
-		mysqlMustExec("CREATE DATABASE %s DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_general_ci", dbname)
+		mysqlMustExec("CREATE DATABASE %s DEFAULT CHARSET %s COLLATE %s", dbname, dbCharset, dbCollate)
 	}
 	dbBase := parseTableFromDB(dbname)
 	log.Printf("done!\n\n")

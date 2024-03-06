@@ -21,7 +21,8 @@ var (
 	dbPort        int
 	dbName        string
 	dbFile        string
-	dbChar        string
+	dbCharset     string // 字符集
+	dbCollate     string // 字符集排序规则
 	onlyCk        bool
 	modifySrcFile bool
 )
@@ -34,7 +35,8 @@ func init() {
 	flag.IntVar(&dbPort, "P", 3306, "Port number to use for connection.")
 	flag.StringVar(&dbName, "d", "", "Database to diff.")
 	flag.StringVar(&dbFile, "f", "", "Read this sql file to update database.")
-	flag.StringVar(&dbChar, "default-character-set", "utf8mb4", "Set the default character set.")
+	flag.StringVar(&dbCharset, "default-character-set", "utf8mb4", "Set the default character set.")
+	flag.StringVar(&dbCollate, "collate", "", "Set the default charset collation.")
 	flag.BoolVar(&onlyCk, "only-check", false, "Only check diff.")
 	flag.BoolVar(&modifySrcFile, "modify", false, "Modified source file.(If -only-check is set, this option is invalid)")
 
@@ -59,9 +61,12 @@ func main() {
 		flag.Usage()
 		return
 	}
+	if len(dbCollate) == 0 {
+		dbCollate = fmt.Sprintf("%s_general_ci", dbCharset)
+	}
 
 	var err error
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/?charset=%s", dbUser, dbPass, dbHost, dbPort, dbChar)
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/?charset=%s", dbUser, dbPass, dbHost, dbPort, dbCharset)
 	MysqlDB, err = sql.Open("mysql", dsn)
 	if err != nil {
 		log.Println("打开数据库错误, err:" + err.Error())
