@@ -35,7 +35,7 @@ func init() {
 	flag.IntVar(&dbPort, "P", 3306, "Port number to use for connection.")
 	flag.StringVar(&dbName, "d", "", "Database to diff.")
 	flag.StringVar(&dbFile, "f", "", "Read this sql file to update database.")
-	flag.StringVar(&dbCharset, "default-character-set", "utf8mb4", "Set the default character set.")
+	flag.StringVar(&dbCharset, "charset", "utf8mb4", "Set the default character set.")
 	flag.StringVar(&dbCollate, "collate", "", "Set the default charset collation.")
 	flag.BoolVar(&onlyCk, "only-check", false, "Only check diff.")
 	flag.BoolVar(&modifySrcFile, "modify", false, "Modified source file.(If -only-check is set, this option is invalid)")

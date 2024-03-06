@@ -24,10 +24,11 @@ go build
 
 ### 参数
 
-- `-u dbuser -p password -h host -P port -default-character-set=utf8` 
+- `-u dbuser -p password -h host -P port -charset=utf8mb4 -collate=utf8mb4_general_ci`
 - `-d dbname` 表示要维护的数据库名，如果不存在，则自动创建
 - `-f file.sql` 表示更新的sql文件
 - `-only-check` 表示只检查差异，但不执行差异到数据库
+- `-modify` 表示执行成功后修正源文件
 
 ### 示例
 
