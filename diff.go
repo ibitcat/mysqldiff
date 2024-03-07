@@ -326,7 +326,7 @@ func mysqlDiffUpdate(file, dbname string) {
 	log.Printf("done!\n\n")
 
 	// 4. 创建实验库
-	log.Printf("4. 创建实验库\n")
+	log.Printf("4. 创建实验库【%s】\n", tmpDB_A)
 	dropAndUse(tmpDB_A)
 	for _, t := range dbBase {
 		log.Printf("    正在创建实验表: %s \n", t.Name)
